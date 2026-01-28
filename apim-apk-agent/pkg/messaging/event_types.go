@@ -152,6 +152,8 @@ type SubscriptionEvent struct {
 	ApplicationID     int32  `json:"applicationId"`
 	ApplicationUUID   string `json:"applicationUUID"`
 	PolicyID          string `json:"policyId"`
+	TierName          string `json:"tierName"`          // Alternative field for policy name
+	ThrottlingPolicy  string `json:"throttlingPolicy"`  // Another alternative field
 	SubscriptionState string `json:"subscriptionState"`
 	APIName           string `json:"apiName"`
 	APIVersion        string `json:"apiVersion"`

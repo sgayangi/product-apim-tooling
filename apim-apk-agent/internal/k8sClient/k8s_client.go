@@ -458,7 +458,7 @@ func UpdateRateLimitPolicyCR(policy eventhubTypes.RateLimitPolicy, k8sClient cli
 func DeploySubscriptionRateLimitPolicyCR(policy eventhubTypes.SubscriptionPolicy, k8sClient client.Client) {
 	conf, _ := config.ReadConfigs()
 	crRateLimitPolicy := dpv1alpha3.RateLimitPolicy{}
-	crName := PrepareSubscritionPolicyCRName(policy.Name, policy.TenantDomain)
+	crName := PrepareSubscriptionPolicyCRName(policy.Name, policy.TenantDomain)
 	labelMap := map[string]string{
 		"InitiateFrom": "CP",
 		"CPName":       policy.Name,
@@ -489,9 +489,9 @@ func DeploySubscriptionRateLimitPolicyCR(policy eventhubTypes.SubscriptionPolicy
 			},
 		}
 		if err := k8sClient.Create(context.Background(), &crRateLimitPolicy); err != nil {
-			loggers.LoggerK8sClient.Error("Unable to create RateLimitPolicies CR: " + err.Error())
+			loggers.LoggerK8sClient.Error("Unable to create SubscriptionRateLimitPolicies CR: " + err.Error())
 		} else {
-			loggers.LoggerK8sClient.Info("RateLimitPolicies CR created: " + crRateLimitPolicy.Name)
+			loggers.LoggerK8sClient.Info("Subscription RateLimitPolicies CR created: " + crRateLimitPolicy.Name)
 		}
 	} else {
 		crRateLimitPolicy.Spec.Override.Subscription.StopOnQuotaReach = policy.StopOnQuotaReach
@@ -507,12 +507,11 @@ func DeploySubscriptionRateLimitPolicyCR(policy eventhubTypes.SubscriptionPolicy
 		crRateLimitPolicy.Spec.Override.Subscription.BurstControl.RequestsPerUnit = uint32(policy.RateLimitCount)
 		crRateLimitPolicy.Spec.Override.Subscription.BurstControl.Unit = policy.RateLimitTimeUnit
 		if err := k8sClient.Update(context.Background(), &crRateLimitPolicy); err != nil {
-			loggers.LoggerK8sClient.Error("Unable to update RateLimitPolicies CR: " + err.Error())
+			loggers.LoggerK8sClient.Error("Unable to update RateLimitPolicies CR for subscription level: " + err.Error())
 		} else {
-			loggers.LoggerK8sClient.Info("RateLimitPolicies CR updated: " + crRateLimitPolicy.Name)
+			loggers.LoggerK8sClient.Info("RateLimitPolicies CR updated for subscription level: " + crRateLimitPolicy.Name)
 		}
 	}
-
 }
 
 // DeployAIRateLimitPolicyFromCPPolicy applies the given AIRateLimitPolicies struct to the Kubernetes cluster.
@@ -547,7 +546,7 @@ func DeployAIRateLimitPolicyFromCPPolicy(policy eventhubTypes.SubscriptionPolicy
 
 	crRateLimitPolicies := dpv1alpha3.AIRateLimitPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      PrepareSubscritionPolicyCRName(policy.Name, policy.TenantDomain),
+			Name:      PrepareSubscriptionPolicyCRName(policy.Name, policy.TenantDomain),
 			Namespace: conf.DataPlane.Namespace,
 			Labels:    labelMap,
 		},
@@ -967,7 +966,7 @@ func RetrieveAllAIRatelimitPoliciesSFromK8s(k8sClient client.Client, nextToken s
 	return resolvedAIRLList, airlList.Continue, nil
 }
 
-// PrepareSubscritionPolicyCRName prepare the cr name for a given policy name and organization pair
-func PrepareSubscritionPolicyCRName(name, org string) string {
+// PrepareSubscriptionPolicyCRName prepares the CR name for a given policy name and organization pair
+func PrepareSubscriptionPolicyCRName(name, org string) string {
 	return getSha1Value(fmt.Sprintf("%s-%s", name, org))
 }

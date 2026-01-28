@@ -52,6 +52,11 @@ func StartInternalServer(port uint) {
 	})
 	r.GET("/subscriptions", func(c *gin.Context) {
 		subscriptionList := GetAllSubscriptions()
+		logger.LoggerMgtServer.Infof("REST API /subscriptions called - Returning %d subscriptions", len(subscriptionList))
+		for i, sub := range subscriptionList {
+			logger.LoggerMgtServer.Infof("  Subscription[%d]: UUID=%s, PolicyName='%s', RateLimit='%s', Org=%s, Status=%s",
+				i, sub.UUID, sub.PolicyName, sub.RateLimit, sub.Organization, sub.SubStatus)
+		}
 		c.JSON(http.StatusOK, SubscriptionList{List: subscriptionList})
 	})
 	r.GET("/applicationmappings", func(c *gin.Context) {

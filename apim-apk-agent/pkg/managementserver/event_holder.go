@@ -117,6 +117,8 @@ func AddApplication(application Application) {
 
 // AddSubscription adds a subscription to the subscriptionMap
 func AddSubscription(subscription Subscription) {
+	loggers.LoggerMgtServer.Debugf("Adding subscription to map - UUID: %s, RateLimit: '%s', PolicyName: '%s', Organization: %s",
+		subscription.UUID, subscription.RateLimit, subscription.PolicyName, subscription.Organization)
 	subscriptionMap[subscription.UUID] = subscription
 }
 
@@ -156,6 +158,8 @@ func marshalApplication(application Application) ResolvedApplication {
 func GetAllSubscriptions() []Subscription {
 	var subscriptions []Subscription
 	for _, subscription := range subscriptionMap {
+		loggers.LoggerMgtServer.Debugf("Returning subscription - UUID: %s, RateLimit: '%s', PolicyName: '%s', Organization: %s, SubStatus: %s",
+			subscription.UUID, subscription.RateLimit, subscription.PolicyName, subscription.Organization, subscription.SubStatus)
 		subscriptions = append(subscriptions, subscription)
 	}
 	return subscriptions
@@ -218,6 +222,8 @@ func UpdateApplication(uuid string, application Application) {
 
 // UpdateSubscription updates a subscription in the subscriptionMap
 func UpdateSubscription(uuid string, subscription Subscription) {
+	loggers.LoggerMgtServer.Debugf("Updating subscription - UUID: %s, RateLimit: '%s', Organization: %s",
+		uuid, subscription.RateLimit, subscription.Organization)
 	subscriptionMap[uuid] = subscription
 }
 
@@ -313,7 +319,13 @@ func DeleteAllApplicationKeyMappings() {
 
 // AddAllSubscriptions adds all the subscriptions in the subscriptionMap
 func AddAllSubscriptions(subscriptionMapTemp map[string]Subscription) {
+	loggers.LoggerMgtServer.Infof("AddAllSubscriptions called with %d subscriptions", len(subscriptionMapTemp))
+	for uuid, sub := range subscriptionMapTemp {
+		loggers.LoggerMgtServer.Infof("  Adding subscription UUID=%s, PolicyName='%s', RateLimit='%s', Org=%s",
+			uuid, sub.PolicyName, sub.RateLimit, sub.Organization)
+	}
 	subscriptionMap = subscriptionMapTemp
+	loggers.LoggerMgtServer.Infof("Subscription map now contains %d subscriptions", len(subscriptionMap))
 }
 
 // AddAllApplications adds all the applications in the applicationMap

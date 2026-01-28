@@ -124,7 +124,7 @@ func FetchAIProvidersOnEvent(aiProviderName string, aiProviderVersion string, or
 		return
 	}
 	responseBytes, err := io.ReadAll(resp.Body)
-	logger.LoggerSynchronizer.Infof("Response String received for AI Providers: %v", string(responseBytes))
+	logger.LoggerSynchronizer.Debugf("Response String received for AI Providers: %v", string(responseBytes))
 
 	if err != nil {
 		errorMsg = "Error occurred while reading the response received for: " + aiProviderEndpoint

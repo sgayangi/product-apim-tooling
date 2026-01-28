@@ -189,7 +189,7 @@ func handleAPIEvents(data []byte, eventType string, conf *config.Config, c clien
 		if apiEvent.Version == "" {
 			apiVersion = apiEvent.Version
 		}
-		logger.LoggerMessaging.Debugf("API event for the API %s:%s is dropped due to having non related tenantDomain : %s",
+		logger.LoggerMessaging.Infof("API event for the API %s:%s is dropped due to having non related tenantDomain : %s",
 			apiName, apiVersion, apiEvent.TenantDomain)
 		return
 	}
@@ -223,10 +223,10 @@ func handleAPIEvents(data []byte, eventType string, conf *config.Config, c clien
 			// for _, configuredEnv := range configuredEnvs {
 			// 	if configuredEnv == env {
 			// 			if xds.CheckIfAPIMetadataIsAlreadyAvailable(apiEvent.UUID, env) {
-			// 				logger.LoggerInternalMsg.Debugf("API Metadata for api Id: %s is not updated as it already exists", apiEvent.UUID)
+			// 				logger.LoggerInternalMsg.Infof("API Metadata for api Id: %s is not updated as it already exists", apiEvent.UUID)
 			// 				continue
 			// 			}
-			// 			logger.LoggerInternalMsg.Debugf("Fetching Metadata for api Id: %s ", apiEvent.UUID)
+			// 			logger.LoggerInternalMsg.Infof("Fetching Metadata for api Id: %s ", apiEvent.UUID)
 			// 			queryParamMap := make(map[string]string, 3)
 			// 			queryParamMap[eh.GatewayLabelParam] = configuredEnv
 			// 			queryParamMap[eh.ContextParam] = apiEvent.Context
@@ -247,7 +247,7 @@ func handleLifeCycleEvents(data []byte) {
 		return
 	}
 	if !belongsToTenant(apiEvent.TenantDomain) {
-		logger.LoggerMessaging.Debugf("API Lifecycle event for the API %s:%s is dropped due to having non related tenantDomain : %s",
+		logger.LoggerMessaging.Infof("API Lifecycle event for the API %s:%s is dropped due to having non related tenantDomain : %s",
 			apiEvent.APIName, apiEvent.APIVersion, apiEvent.TenantDomain)
 		return
 	}
@@ -259,7 +259,7 @@ func handleLifeCycleEvents(data []byte) {
 
 	conf, _ := config.ReadConfigs()
 	configuredEnvs := conf.ControlPlane.EnvironmentLabels
-	logger.LoggerMessaging.Debugf("%s : %s API life cycle state change event triggered", apiEvent.APIName, apiEvent.APIVersion)
+	logger.LoggerMessaging.Infof("%s : %s API life cycle state change event triggered", apiEvent.APIName, apiEvent.APIVersion)
 	if len(configuredEnvs) == 0 {
 		configuredEnvs = append(configuredEnvs, config.DefaultGatewayName)
 	}
@@ -283,7 +283,7 @@ func handleApplicationEvents(data []byte, eventType string) {
 		}
 
 		if !belongsToTenant(applicationRegistrationEvent.TenantDomain) {
-			logger.LoggerMessaging.Debugf("Application Registration event for the Consumer Key : %s is dropped due to having non related tenantDomain : %s",
+			logger.LoggerMessaging.Infof("Application Registration event for the Consumer Key : %s is dropped due to having non related tenantDomain : %s",
 				applicationRegistrationEvent.ConsumerKey, applicationRegistrationEvent.TenantDomain)
 			return
 		}
@@ -322,7 +322,7 @@ func handleApplicationEvents(data []byte, eventType string) {
 		}
 
 		if !belongsToTenant(applicationEvent.TenantDomain) {
-			logger.LoggerMessaging.Debugf("Application event for the Application : %s (with uuid %s) is dropped due to having non related tenantDomain : %s",
+			logger.LoggerMessaging.Infof("Application event for the Application : %s (with uuid %s) is dropped due to having non related tenantDomain : %s",
 				applicationEvent.ApplicationName, applicationEvent.UUID, applicationEvent.TenantDomain)
 			return
 		}
@@ -340,15 +340,40 @@ func handleApplicationEvents(data []byte, eventType string) {
 			Attributes:   marshalAppAttributes(applicationEvent.Attributes),
 		}
 		if applicationEvent.Event.Type == applicationCreate {
-			event := event.Event{Type: constants.ApplicationCreated, Uuid: uuid.New().String(), TimeStamp: applicationEvent.TimeStamp, Application: &applicationGrpcEvent}
-			managementserver.AddApplication(managementserver.Application{UUID: applicationGrpcEvent.Uuid, Name: applicationGrpcEvent.Name, Owner: applicationGrpcEvent.Owner, Organization: applicationGrpcEvent.Organization, Attributes: applicationGrpcEvent.Attributes})
+			event := event.Event{
+				Type:        constants.ApplicationCreated,
+				Uuid:        uuid.New().String(),
+				TimeStamp:   applicationEvent.TimeStamp,
+				Application: &applicationGrpcEvent}
+
+			managementserver.AddApplication(managementserver.Application{
+				UUID:         applicationGrpcEvent.Uuid,
+				Name:         applicationGrpcEvent.Name,
+				Owner:        applicationGrpcEvent.Owner,
+				Organization: applicationGrpcEvent.Organization,
+				Attributes:   applicationGrpcEvent.Attributes})
+
 			utils.SendEvent(&event)
 		} else if applicationEvent.Event.Type == applicationUpdate {
-			event := event.Event{Type: constants.ApplicationUpdated, Uuid: uuid.New().String(), TimeStamp: applicationEvent.TimeStamp, Application: &applicationGrpcEvent}
-			managementserver.UpdateApplication(applicationGrpcEvent.Uuid, managementserver.Application{UUID: applicationGrpcEvent.Uuid, Name: applicationGrpcEvent.Name, Owner: applicationGrpcEvent.Owner, Organization: applicationGrpcEvent.Organization, Attributes: applicationGrpcEvent.Attributes})
+			event := event.Event{
+				Type:        constants.ApplicationUpdated,
+				Uuid:        uuid.New().String(),
+				TimeStamp:   applicationEvent.TimeStamp,
+				Application: &applicationGrpcEvent}
+
+			managementserver.UpdateApplication(applicationGrpcEvent.Uuid, managementserver.Application{
+				UUID:         applicationGrpcEvent.Uuid,
+				Name:         applicationGrpcEvent.Name,
+				Owner:        applicationGrpcEvent.Owner,
+				Organization: applicationGrpcEvent.Organization,
+				Attributes:   applicationGrpcEvent.Attributes})
 			utils.SendEvent(&event)
 		} else if applicationEvent.Event.Type == applicationDelete {
-			event := event.Event{Type: constants.ApplicationDeleted, Uuid: uuid.New().String(), TimeStamp: applicationEvent.TimeStamp, Application: &applicationGrpcEvent}
+			event := event.Event{
+				Type:        constants.ApplicationDeleted,
+				Uuid:        uuid.New().String(),
+				TimeStamp:   applicationEvent.TimeStamp,
+				Application: &applicationGrpcEvent}
 			managementserver.DeleteApplication(applicationGrpcEvent.Uuid)
 			utils.SendEvent(&event)
 		} else {
@@ -376,8 +401,16 @@ func handleSubscriptionEvents(data []byte, eventType string) {
 		logger.LoggerMessaging.Errorf("Error occurred while unmarshalling Subscription event data %v", subEventErr)
 		return
 	}
+
+	// Debug logging to track the raw subscription event data
+	logger.LoggerMessaging.Infof("Raw subscription event data: %s", string(data))
+	logger.LoggerMessaging.Infof("Parsed subscription event - UUID: %s, PolicyID: '%s', TierName: '%s', ThrottlingPolicy: '%s', TenantDomain: '%s', APIName: %s, APIVersion: %s",
+		subscriptionEvent.SubscriptionUUID, subscriptionEvent.PolicyID, subscriptionEvent.TierName,
+		subscriptionEvent.ThrottlingPolicy, subscriptionEvent.TenantDomain,
+		subscriptionEvent.APIName, subscriptionEvent.APIVersion)
+
 	if !belongsToTenant(subscriptionEvent.TenantDomain) {
-		logger.LoggerMessaging.Debugf("Subscription event for the Application : %s and API %s is dropped due to having non related tenantDomain : %s",
+		logger.LoggerMessaging.Infof("Subscription event for the Application : %s and API %s is dropped due to having non related tenantDomain : %s",
 			subscriptionEvent.ApplicationUUID, subscriptionEvent.APIUUID, subscriptionEvent.TenantDomain)
 		return
 	}
@@ -386,23 +419,53 @@ func handleSubscriptionEvents(data []byte, eventType string) {
 		return
 	}
 
-	subscription := event.Subscription{Uuid: subscriptionEvent.SubscriptionUUID,
+	// Determine which field contains the policy identifier
+	// Try PolicyID first, then TierName, then ThrottlingPolicy
+	policyIdentifier := subscriptionEvent.PolicyID
+	if policyIdentifier == "" {
+		policyIdentifier = subscriptionEvent.TierName
+	}
+	if policyIdentifier == "" {
+		policyIdentifier = subscriptionEvent.ThrottlingPolicy
+	}
+
+	// Compute RateLimit value with debug logging
+	rateLimitValue := synchronizer.GetSha1Value(fmt.Sprintf("%s-%s", policyIdentifier, subscriptionEvent.TenantDomain))
+	logger.LoggerMessaging.Infof("Computed RateLimit value for subscription %s: '%s' (from policy identifier: '%s')",
+		subscriptionEvent.SubscriptionUUID, rateLimitValue, policyIdentifier)
+
+	if policyIdentifier == "" {
+		logger.LoggerMessaging.Warnf("WARNING: All policy identifier fields (PolicyID, TierName, ThrottlingPolicy) are empty for subscription %s, RateLimit will be hash of tenant only",
+			subscriptionEvent.SubscriptionUUID)
+	}
+
+	subscription := event.Subscription{
+		Uuid:          subscriptionEvent.SubscriptionUUID,
 		SubStatus:     subscriptionEvent.SubscriptionState,
 		Organization:  subscriptionEvent.TenantDomain,
 		SubscribedApi: &event.SubscribedAPI{Name: subscriptionEvent.APIName, Version: subscriptionEvent.APIVersion},
-		RatelimitTier: synchronizer.GetSha1Value(fmt.Sprintf("%s-%s", subscriptionEvent.PolicyID, subscriptionEvent.TenantDomain)),
+		RatelimitTier: rateLimitValue,
 	}
 	applicationMapping := event.ApplicationMapping{Uuid: utils.GetUniqueIDOfApplicationMapping(subscriptionEvent.ApplicationUUID, subscriptionEvent.SubscriptionUUID), ApplicationRef: subscriptionEvent.ApplicationUUID, SubscriptionRef: subscriptionEvent.SubscriptionUUID, Organization: subscriptionEvent.TenantDomain}
 	if subscriptionEvent.Event.Type == subscriptionCreate {
 		subsEvent := event.Event{Uuid: uuid.New().String(), Type: constants.SubscriptionCreated, TimeStamp: subscriptionEvent.TimeStamp, Subscription: &subscription}
-		managementserver.AddSubscription(managementserver.Subscription{UUID: subscription.Uuid, SubStatus: subscription.SubStatus, Organization: subscription.Organization, RateLimit: subscription.RatelimitTier, SubscribedAPI: &managementserver.SubscribedAPI{Name: subscription.SubscribedApi.Name, Version: subscription.SubscribedApi.Version}})
+		managementserver.AddSubscription(managementserver.Subscription{
+			UUID:         subscription.Uuid,
+			SubStatus:    subscription.SubStatus,
+			Organization: subscription.Organization,
+			RateLimit:    subscription.RatelimitTier,
+			PolicyName:   subscription.RatelimitTier, // Use the hash value as policy name - this matches the RateLimitPolicy CR name
+			SubscribedAPI: &managementserver.SubscribedAPI{
+				Name:    subscription.SubscribedApi.Name,
+				Version: subscription.SubscribedApi.Version}})
+
 		go utils.SendEvent(&subsEvent)
 		applicationMappingEvent := event.Event{Uuid: utils.GetUniqueIDOfApplicationMapping(subscriptionEvent.ApplicationUUID, subscriptionEvent.SubscriptionUUID), Type: constants.ApplicationMappingCreated, TimeStamp: subscriptionEvent.TimeStamp, ApplicationMapping: &applicationMapping}
 		managementserver.AddApplicationMapping(managementserver.ApplicationMapping{UUID: applicationMapping.Uuid, ApplicationRef: applicationMapping.ApplicationRef, SubscriptionRef: applicationMapping.SubscriptionRef, Organization: applicationMapping.Organization})
 		go utils.SendEvent(&applicationMappingEvent)
 	} else if subscriptionEvent.Event.Type == subscriptionUpdate {
 		subsEvent := event.Event{Uuid: uuid.New().String(), Type: constants.SubscriptionUpdated, TimeStamp: subscriptionEvent.TimeStamp, Subscription: &subscription}
-		managementserver.UpdateSubscription(subscription.Uuid, managementserver.Subscription{UUID: subscription.Uuid, SubStatus: subscription.SubStatus, Organization: subscription.Organization, RateLimit: subscription.RatelimitTier, SubscribedAPI: &managementserver.SubscribedAPI{Name: subscription.SubscribedApi.Name, Version: subscription.SubscribedApi.Version}})
+		managementserver.UpdateSubscription(subscription.Uuid, managementserver.Subscription{UUID: subscription.Uuid, SubStatus: subscription.SubStatus, Organization: subscription.Organization, RateLimit: subscription.RatelimitTier, PolicyName: subscription.RatelimitTier, SubscribedAPI: &managementserver.SubscribedAPI{Name: subscription.SubscribedApi.Name, Version: subscription.SubscribedApi.Version}})
 		go utils.SendEvent(&subsEvent)
 		applicationMappingEvent := event.Event{Uuid: utils.GetUniqueIDOfApplicationMapping(subscriptionEvent.ApplicationUUID, subscriptionEvent.SubscriptionUUID), Type: constants.ApplicationMappingUpdated, TimeStamp: subscriptionEvent.TimeStamp, ApplicationMapping: &applicationMapping}
 		managementserver.UpdateApplicationMapping(applicationMappingEvent.Uuid, managementserver.ApplicationMapping{UUID: applicationMappingEvent.Uuid, ApplicationRef: applicationMapping.ApplicationRef, SubscriptionRef: applicationMapping.SubscriptionRef, Organization: applicationMapping.Organization})
@@ -489,7 +552,7 @@ func handlePolicyEvents(data []byte, eventType string, c client.Client) {
 		} else if strings.EqualFold(policyEvent.PolicyType, "SUBSCRIPTION") {
 			logger.LoggerMessaging.Infof("Policy: %s for policy type: %s", policyEvent.PolicyName, policyEvent.PolicyType)
 			managementserver.DeleteSubscriptionPolicy(policyEvent.PolicyName, policyEvent.TenantDomain)
-			crName := k8sclient.PrepareSubscritionPolicyCRName(policyEvent.PolicyName, policyEvent.TenantDomain)
+			crName := k8sclient.PrepareSubscriptionPolicyCRName(policyEvent.PolicyName, policyEvent.TenantDomain)
 			k8sclient.UnDeploySubscriptionRateLimitPolicyCR(crName, c)
 			k8sclient.UndeploySubscriptionAIRateLimitPolicyCR(crName, c)
 			ratelimitPolicies := managementserver.GetAllRateLimitPolicies()
@@ -531,7 +594,7 @@ func handlePolicyEvents(data []byte, eventType string, c client.Client) {
 		// 	RateLimitTimeUnit: subscriptionPolicyEvent.RateLimitTimeUnit, StopOnQuotaReach: subscriptionPolicyEvent.StopOnQuotaReach,
 		// 	TenantDomain: subscriptionPolicyEvent.TenantDomain, TimeStamp: subscriptionPolicyEvent.TimeStamp}
 
-		// logger.LoggerMessaging.Debugf("SubscriptionPolicy event data %v", subscriptionPolicy)
+		// logger.LoggerMessaging.Infof("SubscriptionPolicy event data %v", subscriptionPolicy)
 
 		// var subscriptionPolicyList *subscription.SubscriptionPolicyList
 		// if subscriptionPolicyEvent.Event.Type == policyCreate {

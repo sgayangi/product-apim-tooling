@@ -148,8 +148,11 @@ func FetchRateLimitPoliciesOnEvent(ratelimitName string, organization string, c 
 				policy.DefaultLimit.RequestCount.TimeUnit = "Hour"
 			case "day":
 				policy.DefaultLimit.RequestCount.TimeUnit = "Day"
+			case "":
+				logger.LoggerSynchronizer.Debugf("Empty timeunit for policy %s, skipping", policy.Name)
+				continue
 			default:
-				logger.LoggerSynchronizer.Errorf("Unsupported timeunit %s", policy.DefaultLimit.RequestCount.TimeUnit)
+				logger.LoggerSynchronizer.Errorf("Unsupported timeunit '%s' for policy %s", policy.DefaultLimit.RequestCount.TimeUnit, policy.Name)
 				continue
 			}
 			switch policy.RateLimitTimeUnit {
@@ -157,8 +160,11 @@ func FetchRateLimitPoliciesOnEvent(ratelimitName string, organization string, c 
 				policy.RateLimitTimeUnit = "Minute"
 			case "sec":
 				policy.RateLimitTimeUnit = "Second"
+			case "":
+				logger.LoggerSynchronizer.Debugf("Empty RateLimitTimeUnit for policy %s, skipping", policy.Name)
+				continue
 			default:
-				logger.LoggerSynchronizer.Errorf("Unsupported timeunit %s", policy.RateLimitTimeUnit)
+				logger.LoggerSynchronizer.Errorf("Unsupported RateLimitTimeUnit '%s' for policy %s", policy.RateLimitTimeUnit, policy.Name)
 				continue
 			}
 			managementserver.AddRateLimitPolicy(policy)
@@ -277,7 +283,7 @@ func FetchSubscriptionRateLimitPoliciesOnEvent(ratelimitName string, organizatio
 					}
 				}
 			} else {
-				logger.LoggerSynchronizer.Errorf("Error while fetching airatelimitpolicies for cleaning up outdataed crs. Error: %+v", retrieveAllAIRLErr)
+				logger.LoggerSynchronizer.Errorf("Error while fetching subscription airatelimitpolicies for cleaning up outdated crs. Error: %+v", retrieveAllAIRLErr)
 			}
 			if retrieveAllRLErr == nil {
 				for _, rl := range rls {
@@ -296,64 +302,73 @@ func FetchSubscriptionRateLimitPoliciesOnEvent(ratelimitName string, organizatio
 					}
 				}
 			} else {
-				logger.LoggerSynchronizer.Errorf("Error while fetching ratelimitpolicies for cleaning up outdataed crs. Error: %+v", retrieveAllRLErr)
+				logger.LoggerSynchronizer.Errorf("Error while fetching subscription ratelimitpolicies for cleaning up outdated crs. Error: %+v", retrieveAllRLErr)
 			}
 		}
 
-		for _, policy := range rateLimitPolicies {
-			if policy.QuotaType == "aiApiQuota" {
-				if policy.DefaultLimit.AiAPIQuota != nil {
-					switch policy.DefaultLimit.AiAPIQuota.TimeUnit {
+		for _, rateLimitPolicy := range rateLimitPolicies {
+			if rateLimitPolicy.QuotaType == "aiApiQuota" {
+				if rateLimitPolicy.DefaultLimit.AiAPIQuota != nil {
+					switch rateLimitPolicy.DefaultLimit.AiAPIQuota.TimeUnit {
 					case "min":
-						policy.DefaultLimit.AiAPIQuota.TimeUnit = "Minute"
+						rateLimitPolicy.DefaultLimit.AiAPIQuota.TimeUnit = "Minute"
 					case "hours":
-						policy.DefaultLimit.AiAPIQuota.TimeUnit = "Hour"
+						rateLimitPolicy.DefaultLimit.AiAPIQuota.TimeUnit = "Hour"
 					case "days":
-						policy.DefaultLimit.AiAPIQuota.TimeUnit = "Day"
+						rateLimitPolicy.DefaultLimit.AiAPIQuota.TimeUnit = "Day"
+					case "":
+						logger.LoggerSynchronizer.Debugf("Empty AiAPIQuota timeunit for policy %s, skipping", rateLimitPolicy.Name)
+						continue
 					default:
-						logger.LoggerSynchronizer.Errorf("Unsupported timeunit %s", policy.DefaultLimit.AiAPIQuota.TimeUnit)
+						logger.LoggerSynchronizer.Errorf("Unsupported AiAPIQuota timeunit '%s' for policy %s", rateLimitPolicy.DefaultLimit.AiAPIQuota.TimeUnit, rateLimitPolicy.Name)
 						continue
 					}
-					if policy.DefaultLimit.AiAPIQuota.PromptTokenCount == nil && policy.DefaultLimit.AiAPIQuota.TotalTokenCount != nil {
-						policy.DefaultLimit.AiAPIQuota.PromptTokenCount = policy.DefaultLimit.AiAPIQuota.TotalTokenCount
+					if rateLimitPolicy.DefaultLimit.AiAPIQuota.PromptTokenCount == nil && rateLimitPolicy.DefaultLimit.AiAPIQuota.TotalTokenCount != nil {
+						rateLimitPolicy.DefaultLimit.AiAPIQuota.PromptTokenCount = rateLimitPolicy.DefaultLimit.AiAPIQuota.TotalTokenCount
 					}
-					if policy.DefaultLimit.AiAPIQuota.CompletionTokenCount == nil && policy.DefaultLimit.AiAPIQuota.TotalTokenCount != nil {
-						policy.DefaultLimit.AiAPIQuota.CompletionTokenCount = policy.DefaultLimit.AiAPIQuota.TotalTokenCount
+					if rateLimitPolicy.DefaultLimit.AiAPIQuota.CompletionTokenCount == nil && rateLimitPolicy.DefaultLimit.AiAPIQuota.TotalTokenCount != nil {
+						rateLimitPolicy.DefaultLimit.AiAPIQuota.CompletionTokenCount = rateLimitPolicy.DefaultLimit.AiAPIQuota.TotalTokenCount
 					}
-					if policy.DefaultLimit.AiAPIQuota.TotalTokenCount == nil && policy.DefaultLimit.AiAPIQuota.PromptTokenCount != nil && policy.DefaultLimit.AiAPIQuota.CompletionTokenCount != nil {
-						total := *policy.DefaultLimit.AiAPIQuota.PromptTokenCount + *policy.DefaultLimit.AiAPIQuota.CompletionTokenCount
-						policy.DefaultLimit.AiAPIQuota.TotalTokenCount = &total
+					if rateLimitPolicy.DefaultLimit.AiAPIQuota.TotalTokenCount == nil && rateLimitPolicy.DefaultLimit.AiAPIQuota.PromptTokenCount != nil && rateLimitPolicy.DefaultLimit.AiAPIQuota.CompletionTokenCount != nil {
+						total := *rateLimitPolicy.DefaultLimit.AiAPIQuota.PromptTokenCount + *rateLimitPolicy.DefaultLimit.AiAPIQuota.CompletionTokenCount
+						rateLimitPolicy.DefaultLimit.AiAPIQuota.TotalTokenCount = &total
 					}
-					managementserver.AddSubscriptionPolicy(policy)
-					k8sclient.DeployAIRateLimitPolicyFromCPPolicy(policy, c)
+					managementserver.AddSubscriptionPolicy(rateLimitPolicy)
+					k8sclient.DeployAIRateLimitPolicyFromCPPolicy(rateLimitPolicy, c)
 				} else {
-					logger.LoggerSynchronizer.Errorf("AIQuota type response recieved but no data found. %+v", policy.DefaultLimit)
+					logger.LoggerSynchronizer.Errorf("AIQuota type response recieved but no data found. %+v", rateLimitPolicy.DefaultLimit)
 				}
 			} else {
-				switch policy.DefaultLimit.RequestCount.TimeUnit {
+				switch rateLimitPolicy.DefaultLimit.RequestCount.TimeUnit {
 				case "min":
-					policy.DefaultLimit.RequestCount.TimeUnit = "Minute"
+					rateLimitPolicy.DefaultLimit.RequestCount.TimeUnit = "Minute"
 				case "hours":
-					policy.DefaultLimit.RequestCount.TimeUnit = "Hour"
+					rateLimitPolicy.DefaultLimit.RequestCount.TimeUnit = "Hour"
 				case "days":
-					policy.DefaultLimit.RequestCount.TimeUnit = "Day"
+					rateLimitPolicy.DefaultLimit.RequestCount.TimeUnit = "Day"
+				case "":
+					logger.LoggerSynchronizer.Debugf("Empty RequestCount timeunit for subscription policy %s, skipping", rateLimitPolicy.Name)
+					continue
 				default:
-					logger.LoggerSynchronizer.Errorf("Unsupported timeunit %s", policy.DefaultLimit.RequestCount.TimeUnit)
+					logger.LoggerSynchronizer.Errorf("Unsupported RequestCount timeunit '%s' for subscription policy %s", rateLimitPolicy.DefaultLimit.RequestCount.TimeUnit, rateLimitPolicy.Name)
 					continue
 				}
-				switch policy.RateLimitTimeUnit {
+				switch rateLimitPolicy.RateLimitTimeUnit {
 				case "min":
-					policy.RateLimitTimeUnit = "Minute"
+					rateLimitPolicy.RateLimitTimeUnit = "Minute"
 				case "sec":
-					policy.RateLimitTimeUnit = "Second"
+					rateLimitPolicy.RateLimitTimeUnit = "Second"
+				case "":
+					logger.LoggerSynchronizer.Debugf("Empty RateLimitTimeUnit for subscription policy %s, skipping", rateLimitPolicy.Name)
+					continue
 				default:
-					logger.LoggerSynchronizer.Errorf("Unsupported timeunit %s", policy.RateLimitTimeUnit)
+					logger.LoggerSynchronizer.Errorf("Unsupported RateLimitTimeUnit '%s' for subscription policy %s", rateLimitPolicy.RateLimitTimeUnit, rateLimitPolicy.Name)
 					continue
 				}
-				managementserver.AddSubscriptionPolicy(policy)
-				logger.LoggerSynchronizer.Infof("RateLimit Policy added to internal map: %v", policy)
+				managementserver.AddSubscriptionPolicy(rateLimitPolicy)
+				logger.LoggerSynchronizer.Infof("Subscription RateLimit Policy added to internal map: %v", rateLimitPolicy)
 				// Update the exisitng rate limit policies with current policy
-				k8sclient.DeploySubscriptionRateLimitPolicyCR(policy, c)
+				k8sclient.DeploySubscriptionRateLimitPolicyCR(rateLimitPolicy, c)
 			}
 		}
 	} else {
